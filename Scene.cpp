@@ -463,6 +463,69 @@ void Scene::applyTransformationsToVertices(vector<Vec4 *> *vertices4)
 
 }
 
+void applyCameraTransformation(Camera *camera, vector<Vec4 *> *vertices4)
+{
+	Matrix4 projectionMatrix;
+	Vec3 u = camera->u;
+	Vec3 v = camera->v;
+	Vec3 w = camera->w;
+	Vec3 cameraPosition = camera->position;
+	double cartesianToCamera[4][4] = {{u.x, u.y, u.z, 0},
+									 {v.x, v.y, v.z, 0},
+									 {w.x, w.y, w.z, 0},
+									 {0, 0, 0, 1}};
+	Matrix4 cartesianToCameraMatrix = Matrix4(cartesianToCamera);
+	double translationHelper[4][4] = {{1, 0, 0, -cameraPosition.x},
+									 {0, 1, 0, -cameraPosition.y},
+									 {0, 0, 1, -cameraPosition.z},
+									 {0, 0, 0, 1}};
+	Matrix4 translationMatrix = Matrix4(translationHelper);
+	Matrix4 cameraTransformationMatrix = multiplyMatrixWithMatrix(cartesianToCameraMatrix, translationMatrix);
+	projectionMatrix = cameraTransformationMatrix;
+
+	//perspective projection
+	if(camera->projectionType){
+		Matrix4 perspectiveToOrthographic;
+		double perspectiveToOrthographicHelper[4][4] = {{camera->near, 0, 0, 0},
+													   {0, camera->near, 0, 0},
+													   {0, 0, camera->near + camera->far, camera->near * camera->far},
+													   {0, 0, -1, 0}};
+		perspectiveToOrthographic = Matrix4(perspectiveToOrthographicHelper);
+		projectionMatrix = multiplyMatrixWithMatrix(perspectiveToOrthographic, projectionMatrix);
+		Matrix4 orthographicProjection;
+		double orthographicProjectionHelper[4][4] = {{2 / (camera->right - camera->left), 0, 0, -(camera->right + camera->left) / (camera->right - camera->left)},
+													 {0, 2 / (camera->top - camera->bottom), 0, -(camera->top + camera->bottom) / (camera->top - camera->bottom)},
+													 {0, 0, 2 / (camera->near - camera->far), (camera->near + camera->far) / (camera->near - camera->far)},
+													 {0, 0, 0, 1}};
+		orthographicProjection = Matrix4(orthographicProjectionHelper);
+		projectionMatrix = multiplyMatrixWithMatrix(orthographicProjection, projectionMatrix);
+	}
+	else{
+		Matrix4 orthographicProjection;
+		double orthographicProjectionHelper[4][4] = {{2 / (camera->right - camera->left), 0, 0, -(camera->right + camera->left) / (camera->right - camera->left)},
+													 {0, 2 / (camera->top - camera->bottom), 0, -(camera->top + camera->bottom) / (camera->top - camera->bottom)},
+													 {0, 0, 2 / (camera->near - camera->far), (camera->near + camera->far) / (camera->near - camera->far)},
+													 {0, 0, 0, 1}};
+		orthographicProjection = Matrix4(orthographicProjectionHelper);
+		projectionMatrix = multiplyMatrixWithMatrix(orthographicProjection, projectionMatrix);
+	}
+
+
+	for(int i = 0; i < vertices4->size(); i++){
+		Vec4 helperMatrix = * (vertices4->at(i));
+		Vec4 calculateTransformation = multiplyMatrixWithVec4(projectionMatrix, helperMatrix);
+		Vec4 * calculateTransformationPointer = new Vec4(calculateTransformation.x, calculateTransformation.y, calculateTransformation.z, calculateTransformation.t, calculateTransformation.colorId);
+		//divide with scalar
+		calculateTransformationPointer->x = calculateTransformationPointer->x / calculateTransformationPointer->t;
+		calculateTransformationPointer->y = calculateTransformationPointer->y / calculateTransformationPointer->t;
+		calculateTransformationPointer->z = calculateTransformationPointer->z / calculateTransformationPointer->t;
+		vertices4->at(i) = calculateTransformationPointer;
+	}
+	
+	
+	
+}
+
 void Scene::forwardRenderingPipeline(Camera *camera)
 {
 	// TODO: Implement this function
@@ -471,10 +534,13 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 	std::vector<Vec4*> vertices4;
 	applyTransformationsToVertices(&vertices4);
 
+	
+	// Apply camera transformations to vertices
+	applyCameraTransformation(camera, &vertices4);
+
 	for(int i = 0; i < vertices4.size(); i++){
 		std::cout << vertices4.at(i)->x << " " << vertices4.at(i)->y << " " << vertices4.at(i)->z << endl;
 	}
-
 
 
 
