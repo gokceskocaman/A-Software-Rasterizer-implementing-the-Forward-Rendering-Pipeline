@@ -352,6 +352,8 @@ void Scene::convertPPMToPNG(string ppmFileName)
 	Transformations, clipping, culling, rasterization are done here.
 */
 
+
+
 void Scene::applyTransformationsToVertices(vector<Vec4 *> *vertices4)
 {
 
@@ -361,8 +363,10 @@ void Scene::applyTransformationsToVertices(vector<Vec4 *> *vertices4)
 		double x = vertices[i]->x, y = vertices[i]->y, z = vertices[i]->z;
 		int colorId = vertices[i]->colorId;
 
-		Vec4 homogeneousVector(x, y, z, 1, colorId);
-		vertices4->push_back(&homogeneousVector);
+		Vec4 *homogeneousVector = new Vec4(x, y, z, 1, colorId);
+		vertices4->push_back(homogeneousVector);
+		//Vec4 homogeneousVector(x, y, z, 1, colorId);
+		//vertices4->push_back(&homogeneousVector);
 	}
 
 	for(int i = 0; i < meshes.size(); i++){
@@ -382,7 +386,7 @@ void Scene::applyTransformationsToVertices(vector<Vec4 *> *vertices4)
 
 		Matrix4 transformationMatrix;
 		transformationMatrix = getIdentityMatrix();
-
+		
 		for(int j = 0; j < meshes[i] -> numberOfTransformations ; j++ ){
 			char transformationType = meshes[i]->transformationTypes[j];
 			if(transformationType == 't'){
@@ -405,12 +409,56 @@ void Scene::applyTransformationsToVertices(vector<Vec4 *> *vertices4)
 				scalingMatrix = Matrix4(matrixHelper);
 				transformationMatrix = multiplyMatrixWithMatrix(scalingMatrix, transformationMatrix);
 			}
-			
+			else if(transformationType == 'r'){
+				Rotation rotation = *rotations[meshes[i]->transformationIds[j] - 1];
+				Vec3 u = Vec3(rotation.ux, rotation.uy, rotation.uz);
+				Vec3 v;
+				if(u.x != 0){
+					v.x = u.y;
+					v.y = -u.x;
+					v.z = 0;
+				}
+				else{
+					v.x = 0;
+					v.y = u.z;
+					v.z = -u.y;
+				}
+				Vec3 w = crossProductVec3(u, v);
+				u = normalizeVec3(u);
+				v = normalizeVec3(v);
+				w = normalizeVec3(w);
+				double baseToU[4][4] = {{u.x, u.y, u.z, 0},
+										{v.x, v.y, v.z, 0},
+										{w.x, w.y, w.z, 0},
+										{0, 0, 0, 1}};
+				double uToBase[4][4] = {{u.x, v.x, w.x, 0},
+										{u.y, v.y, w.y, 0},
+										{u.z, v.z, w.z, 0},
+										{0, 0, 0, 1}};
+				Matrix4 baseToUMatrix = Matrix4(baseToU);
+				Matrix4 uToBaseMatrix = Matrix4(uToBase);
+				double rotationMatrixHelper[4][4] = {{1, 0, 0, 0},
+													 {0,  cos(M_PI * rotation.angle / 180), -sin(M_PI * rotation.angle / 180), 0},
+													 {0, sin(M_PI * rotation.angle / 180),  cos(M_PI * rotation.angle / 180), 0},
+													 {0, 0, 0, 1}};
+				Matrix4 rotationMatrixHelperMatrix = Matrix4(rotationMatrixHelper);
+				Matrix4 rotationMatrix = multiplyMatrixWithMatrix(uToBaseMatrix, rotationMatrixHelperMatrix);
+				rotationMatrix = multiplyMatrixWithMatrix(rotationMatrix, baseToUMatrix);
+				transformationMatrix = multiplyMatrixWithMatrix(rotationMatrix, transformationMatrix); 
+			}
 		}
 
-
-
-
+		
+		for(int j = 0; j < distinctVertices.size(); j++){
+			int currentVertexId = (distinctVertices[j] - 1);
+			Vec4 helperMatrix = * (vertices4->at(currentVertexId));
+			//std::cout << helperMatrix.x << " " << helperMatrix.y << " " << helperMatrix.z << endl;
+			Vec4 calculateTransformation = multiplyMatrixWithVec4(transformationMatrix, helperMatrix);
+			Vec4 * calculateTransformationPointer = new Vec4(calculateTransformation.x, calculateTransformation.y, calculateTransformation.z, calculateTransformation.t, calculateTransformation.colorId);
+			vertices4->at(currentVertexId) = calculateTransformationPointer;
+			//std::cout << vertices4->at(currentVertexId)->x << " " << vertices4->at(currentVertexId)->y << " " << vertices4->at(currentVertexId)->z << endl;
+		}
+		
 	}
 
 }
@@ -419,12 +467,15 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 {
 	// TODO: Implement this function
 
-	// 1. Apply transformations to vertices
-	std::vector<Vec4*> * vertices4;
-	applyTransformationsToVertices(vertices4);
-	for(int i = 0; i < vertices4->size(); i++){
-		std::cout << vertices4->at(i)->x << " " << vertices4->at(i)->y << " " << vertices4->at(i)->z << endl;
+	// Apply modeling transformations to vertices
+	std::vector<Vec4*> vertices4;
+	applyTransformationsToVertices(&vertices4);
+
+	for(int i = 0; i < vertices4.size(); i++){
+		std::cout << vertices4.at(i)->x << " " << vertices4.at(i)->y << " " << vertices4.at(i)->z << endl;
 	}
+
+
 
 
 
