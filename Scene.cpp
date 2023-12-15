@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <iostream>
 
 #include "tinyxml2.h"
 #include "Triangle.h"
@@ -342,14 +343,90 @@ void Scene::convertPPMToPNG(string ppmFileName)
 	string command;
 
 	// TODO: Change implementation if necessary.
-	command = "./magick convert " + ppmFileName + " " + ppmFileName + ".png";
-	system(command.c_str());
+	//degistirmeyi sakinnnnn unutma
+	//command = "convert " + ppmFileName + " " + ppmFileName + ".png";
+	//system(command.c_str());
 }
 
 /*
 	Transformations, clipping, culling, rasterization are done here.
 */
+
+void Scene::applyTransformationsToVertices(vector<Vec4 *> *vertices4)
+{
+
+	//vector<Vec4 *> *vertices4Helper = & this->vertices4;
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		double x = vertices[i]->x, y = vertices[i]->y, z = vertices[i]->z;
+		int colorId = vertices[i]->colorId;
+
+		Vec4 homogeneousVector(x, y, z, 1, colorId);
+		vertices4->push_back(&homogeneousVector);
+	}
+
+	for(int i = 0; i < meshes.size(); i++){
+		vector<int> distinctVertices;
+		//find vertices from "vertices" vector
+		for(int j = 0; j < meshes[i]->triangles.size(); j++){
+			if(find(distinctVertices.begin(), distinctVertices.end(), meshes[i]->triangles[j].vertexIds[0]) == distinctVertices.end()){
+				distinctVertices.push_back(meshes[i]->triangles[j].vertexIds[0]);
+			}
+			if(find(distinctVertices.begin(), distinctVertices.end(), meshes[i]->triangles[j].vertexIds[1]) == distinctVertices.end()){
+				distinctVertices.push_back(meshes[i]->triangles[j].vertexIds[1]);
+			}
+			if(find(distinctVertices.begin(), distinctVertices.end(), meshes[i]->triangles[j].vertexIds[2]) == distinctVertices.end()){
+				distinctVertices.push_back(meshes[i]->triangles[j].vertexIds[2]);
+			}
+		}
+
+		Matrix4 transformationMatrix;
+		transformationMatrix = getIdentityMatrix();
+
+		for(int j = 0; j < meshes[i] -> numberOfTransformations ; j++ ){
+			char transformationType = meshes[i]->transformationTypes[j];
+			if(transformationType == 't'){
+				Translation translation = *translations[meshes[i]->transformationIds[j] - 1];
+				
+				double matrixHelper[4][4] = {{1, 0, 0, translation.tx},
+								  			 {0, 1, 0, translation.ty},
+								  			 {0, 0, 1, translation.tz},
+								 			 {0, 0, 0, 1}};
+				Matrix4 translationMatrix = Matrix4(matrixHelper);
+				transformationMatrix = multiplyMatrixWithMatrix(translationMatrix, transformationMatrix);
+			}
+			else if(transformationType == 's'){
+				Matrix4 scalingMatrix;
+				Scaling scaling = *scalings[meshes[i]->transformationIds[j] - 1];
+				double matrixHelper[4][4] = {{scaling.sx, 0, 0, 0},
+								  			 {0, scaling.sy, 0, 0},
+								  			 {0, 0, scaling.sz, 0},
+								 			 {0, 0, 0, 1}};
+				scalingMatrix = Matrix4(matrixHelper);
+				transformationMatrix = multiplyMatrixWithMatrix(scalingMatrix, transformationMatrix);
+			}
+			
+		}
+
+
+
+
+	}
+
+}
+
 void Scene::forwardRenderingPipeline(Camera *camera)
 {
 	// TODO: Implement this function
+
+	// 1. Apply transformations to vertices
+	std::vector<Vec4*> * vertices4;
+	applyTransformationsToVertices(vertices4);
+	for(int i = 0; i < vertices4->size(); i++){
+		std::cout << vertices4->at(i)->x << " " << vertices4->at(i)->y << " " << vertices4->at(i)->z << endl;
+	}
+
+
+
+
 }

@@ -24,6 +24,8 @@ public:
 	std::vector<Rotation *> rotations;
 	std::vector<Translation *> translations;
 	std::vector<Mesh *> meshes;
+	//
+
 
 	Scene(const char *xmlPath);
 
@@ -33,6 +35,9 @@ public:
 	void writeImageToPPMFile(Camera *camera);
 	void convertPPMToPNG(std::string ppmFileName);
 	void forwardRenderingPipeline(Camera *camera);
+
+	//
+	void applyTransformationsToVertices(std::vector<Vec4 *> *vertices4);
 };
 
 #endif
